@@ -1,5 +1,4 @@
 FROM ubuntu
-MAINTAINER v.matyukhanov
 RUN apt update
 RUN apt install -y curl cron nano python3.7 openssl python3-pip libcurl4-openssl-dev libssl-dev libsm6 libxext6 libxrender-dev libpython3.7-dev libnss3 libnss3-dev
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
