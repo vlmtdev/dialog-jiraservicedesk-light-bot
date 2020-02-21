@@ -30,7 +30,7 @@ How to launch bot:
 docker run -d --name dialog-servicedesk_light-bot-TECHSUP -i -t --restart always \
 	-v /etc/localtime:/etc/localtime:ro \
 	-e BOT_API_KEY="place_your_bot_api_key_here" \
-	-e ENDPOINT="eem.dlg.im" \
+	-e ENDPOINT="dialog.endpoint.address.com" \
 	-e ISSUE_TYPE_MODE="1" \
 	-e ISSUE_TYPE_TIME="12" \
 	-e ISSUE_TYPE_CONFIG="8,21" \
