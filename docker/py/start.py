@@ -34,26 +34,16 @@ def on_msg(*params):
             if checkDelay(request[2]):
                 banList.append(request)
                 if mode == '1' or mode == '2':
-
-                    common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
-                    addToQueue(request)
-
                     optional = [None]*2
                     optional[0] = link
                     optional[1] = projectId
-                    postRequest = translate(lang,'ticketConfirmation') + request[3] + '\n***\n' + translate(lang,'creatingTicket',optional)
 
-                    buttons = generateButtons(request[0])
+                    common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
+                    
+                    addToQueue(request)
+                    
+                    sendConfirmationMessage(optional,request)
 
-                    messageId = bot.messaging.send_message(bot.users.get_user_peer_by_id(request[2]),postRequest,
-                        [interactive_media.InteractiveMediaGroup(
-                            buttons
-                    )]).message_id
-
-                    requestMessage = []
-                    requestMessage.append(request[0])
-                    requestMessage.append(messageId)
-                    requestMessageList.append(requestMessage)
                 if mode == '0':
                     common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
                     addToQueue(request)
@@ -85,6 +75,31 @@ def on_click(*params):
     else:
         message = bot.messaging.get_messages_by_id([params[0].mid])[0]
         bot.messaging.update_message(message, translate(lang,'requestError'))
+
+def sendConfirmationMessage(optional,request):
+    try:
+        postRequest = translate(lang,'ticketConfirmation') + request[3] + '\n***\n' + translate(lang,'creatingTicket',optional)
+
+        buttons = generateButtons(request[0])
+
+        messageId = bot.messaging.send_message(bot.users.get_user_peer_by_id(request[2]),postRequest,
+            [interactive_media.InteractiveMediaGroup(buttons)]).message_id
+
+        requestMessage = []
+        requestMessage.append(request[0])
+        requestMessage.append(messageId)
+        requestMessageList.append(requestMessage)
+        
+        return True
+    except (TypeError,json.decoder.JSONDecodeError):
+        common.conMsg('bot','Failed to send ticket cause failed to authorize or connect to Jira')
+        peer = bot.users.get_user_peer_by_id(request[2])
+        bot.messaging.send_message(peer,translate(lang,'jiraAuthError',optional))
+        removeFromQueue(str(request[0]))
+        removeFromRequestMessageList(str(request[0]))
+        removeFromBanList(request[2])
+        return False
+
 
 def returnFromQueueByQueueId(queue_id):
     i = 0
@@ -146,8 +161,8 @@ def replyToReporter(response='',queue_id='',uid='',keep=True,ticketText=''):
         message = bot.messaging.get_messages_by_id(mids)[0]
         bot.messaging.update_message(message, translate(lang,'ticketConfirmation') + ticketText + '\n***\n' + translate(lang,'cancelRequest'))
         common.conMsg('bot','Cancelling Replied to reporter with editing queue_id=' + str(queue_id))
-    removeFromRequestMessageList(queue_id)
-
+        removeFromRequestMessageList(queue_id)
+    
 def findMidsWithQueueId(queue_id):
     mids = []
     i = 0
@@ -179,21 +194,42 @@ def removeFromRequestMessageList(queue_id):
     return None
 
 def sendTicketManually(queue_id,requestTypeId):
+    try:
+        i = 0
+        while i < len(queue):
+            if queue_id == queue[i][0]:
+                queueMember = queue[i]
+                reporter = bot.users.get_user_by_id(int(queueMember[2])).data.nick.value
+                requestMessage = queueMember[3]
+                response = jira.parseResponseCreatingTicket(jira.createTicket(credentials,projectId,requestTypeId,reporter,requestMessage))
+                jira.deleteUserFromWatchers(credentials,response[1])
+                replyToReporter(response=response,queue_id=queueMember[0],uid=queueMember[2],ticketText=requestMessage)
+                common.conMsg('bot','Ticket sent request manually TypeId=' + str(requestTypeId) + ' reporter=' + str(reporter))
+                removeFromRequestMessageList(queue_id)
+                removeFromQueue(str(queueMember[0]))
+                return response
+            i += 1
+        else:
+            return None
+    except (TypeError,json.decoder.JSONDecodeError):
+        optional = [None]*2
+        optional[0] = link
+        optional[1] = projectId
+        common.conMsg('bot','Failed to send ticket cause failed to authorize or connect to Jira')
+        message = bot.messaging.get_messages_by_id(findMidsWithQueueId(queue_id))[0]
+        bot.messaging.update_message(message, translate(lang,'jiraAuthError',optional))
+        removeFromBanList(findUidWithQueueId(queue_id))
+        removeFromRequestMessageList(queue_id)
+        removeFromQueue(queue_id)
+        return None
+
+def findUidWithQueueId(queue_id):
     i = 0
     while i < len(queue):
-        if queue_id == queue[i][0]:
-            queueMember = queue[i]
-            reporter = bot.users.get_user_by_id(int(queueMember[2])).data.nick.value
-            requestMessage = queueMember[3]
-            response = jira.parseResponseCreatingTicket(jira.createTicket(credentials,projectId,requestTypeId,reporter,requestMessage))
-            jira.deleteUserFromWatchers(credentials,response[1])
-            replyToReporter(response=response,queue_id=queueMember[0],uid=queueMember[2],ticketText=requestMessage)
-            common.conMsg('bot','Ticket sent request manually TypeId=' + str(requestTypeId) + ' reporter=' + str(reporter))
-            removeFromQueue(str(queueMember[0]))
-            return response
+        if queue[i][0] == queue_id:
+            return queue[i][2]
         i += 1
-    else:
-        return None
+    return None
 
 def sendTicketAuto():
     nowTime = int(calendar.timegm(time.gmtime()))
@@ -203,8 +239,7 @@ def sendTicketAuto():
             sendTicketManually(queue[i][0],os.environ['ISSUE_TYPE_CONFIG'].split(',')[0])
             return None
         i += 1
-    else:
-        return None
+    return None
 
 def checkRequestByTimeout():
     nowTime = int(calendar.timegm(time.gmtime()))
