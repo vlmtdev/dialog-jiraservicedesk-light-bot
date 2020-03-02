@@ -252,6 +252,7 @@ def checkRequestByTimeout():
             bot.messaging.update_message(message, translate(lang,'cancelledByTimeout'))
             common.conMsg('bot','Ticket cancelled by timeout queue_id=' + str(queue[i][0]))
             removeFromBanList(queue[i][2])
+            removeFromRequestMessageList(str(queue[i][0]))
             removeFromQueue(str(queue[i][0]))
             return None
         i += 1
