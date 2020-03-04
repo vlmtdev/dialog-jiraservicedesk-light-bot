@@ -44,6 +44,20 @@ def getIssueTypeNameByIssueTypeId(credentials,issueId):
         i += 1
     return None
 
+def checkIfUserExists(credentials,username):
+    rawjson = getRawData(credentials,'/rest/api/2/user?username='+username+'&expand=applicationRoles')
+    if 'applicationRoles' in rawjson:
+        i = 0
+        while i < len(rawjson['applicationRoles']['items']):
+            if rawjson['applicationRoles']['items'][i]['key'] == 'jira-software':
+                return True
+            i += 1
+        common.conMsg('jira','User >' + username + '< not found')
+        return False
+    else:
+        common.conMsg('jira','User >' + username + '< not found')
+        return False
+
 def deleteRawData(credentials,url):
     if checkAuth(credentials,'TECHSUP') == True:
         response = io.BytesIO()

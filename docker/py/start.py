@@ -201,13 +201,25 @@ def sendTicketManually(queue_id,requestTypeId):
                 queueMember = queue[i]
                 reporter = bot.users.get_user_by_id(int(queueMember[2])).data.nick.value
                 requestMessage = queueMember[3]
-                response = jira.parseResponseCreatingTicket(jira.createTicket(credentials,projectId,requestTypeId,reporter,requestMessage))
-                jira.deleteUserFromWatchers(credentials,response[1])
-                replyToReporter(response=response,queue_id=queueMember[0],uid=queueMember[2],ticketText=requestMessage)
-                common.conMsg('bot','Ticket sent request manually TypeId=' + str(requestTypeId) + ' reporter=' + str(reporter))
-                removeFromRequestMessageList(queue_id)
-                removeFromQueue(str(queueMember[0]))
-                return response
+                if jira.checkIfUserExists(credentials,reporter) == True:
+                    response = jira.parseResponseCreatingTicket(jira.createTicket(credentials,projectId,requestTypeId,reporter,requestMessage))
+                    jira.deleteUserFromWatchers(credentials,response[1])
+                    replyToReporter(response=response,queue_id=queueMember[0],uid=queueMember[2],ticketText=requestMessage)
+                    common.conMsg('bot','Ticket sent request manually TypeId=' + str(requestTypeId) + ' reporter=' + str(reporter))
+                    removeFromRequestMessageList(queue_id)
+                    removeFromQueue(str(queueMember[0]))
+                    return response
+                else:
+                    optional = [None]*2
+                    optional[0] = link
+                    optional[1] = projectId
+                    common.conMsg('bot','Cannot send message because missing user in Jira')
+                    message = bot.messaging.get_messages_by_id(findMidsWithQueueId(queue_id))[0]
+                    bot.messaging.update_message(message, translate(lang,'ticketConfirmation') + requestMessage + '\n***\n' + translate(lang,'jiraUserNotExists',optional))
+                    removeFromBanList(findUidWithQueueId(queue_id))
+                    removeFromRequestMessageList(queue_id)
+                    removeFromQueue(queue_id)
+                    return None
             i += 1
         else:
             return None

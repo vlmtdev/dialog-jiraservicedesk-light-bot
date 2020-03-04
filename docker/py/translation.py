@@ -24,6 +24,8 @@ def translate(lang,field,optional=[]):
             return 'Ошибка при обработке запроса. Попробуйте снова.'
         if field == 'jiraAuthError':
             return 'Ошибка связи с Jira. Попробуйте отправить заявку еще раз.\nЕсли повторная отправка сообщения не дала результата - пишите заявку [через портал](' + optional[0] + '/servicedesk/customer/portal/' + optional[1] + ') .'
+        if field == 'jiraUserNotExists':
+            return 'Не найден пользователь в Jira с вашим логином.\nПишите заявку [через портал](' + optional[0] + '/servicedesk/customer/portal/' + optional[1] + ') .'
         if os.environ['ISSUE_TYPE_MODE'] == '0':
             if field == 'ticketSent':
                 return 'Заявка была отправлена.\nСсылка на заявку: '
