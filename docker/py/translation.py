@@ -20,6 +20,8 @@ def translate(lang,field,optional=[]):
             return 'Ваш текст заявки:\n***\n'
         if field == 'tooManyRequests':
             return 'Вы отправляете слишком много запросов. Попробуйте подождать и отправить заявку позже.'
+        if field == 'imTooSeriousForYourMedia':
+            return 'Бот не принимает файлы, в т.ч. видео и фото в качестве заявки.\nПопробуйте отправить заявку в виде текста.'
         if field == 'requestError':
             return 'Ошибка при обработке запроса. Попробуйте снова.'
         if field == 'jiraAuthError':

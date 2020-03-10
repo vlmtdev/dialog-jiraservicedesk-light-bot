@@ -22,42 +22,34 @@ def on_msg(*params):
 
         #request array creating
         request = [None]*4
-        request[0] = str(len(queue) + 1)
+        request[0] = getNewQueueId()
         request[1] = params[0].date // 1000
         request[2] = params[0].sender_uid
         request[3] = str(params[0].message.textMessage.text)
 
         #getting peer for further actions
-        peer = bot.users.get_user_peer_by_id(request[2])
-
-        if str(params[0].message.textMessage.text)[0] != '/':
-            if checkDelay(request[2]):
-                banList.append(request)
-                if mode == '1' or mode == '2':
-                    optional = [None]*2
-                    optional[0] = link
-                    optional[1] = projectId
-
-                    common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
-                    
-                    addToQueue(request)
-                    
-                    sendConfirmationMessage(optional,request)
-
-                if mode == '0':
-                    common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
-                    addToQueue(request)
-                    requestTypeId = os.environ['ISSUE_TYPE_CONFIG'].split(',')[0]
-                    sendTicketManually(request[0],requestTypeId)
-
-            else:
-                common.conMsg('bot','Attempting to send request from id ' + str(params[0].peer.id) + ' with non-expired delay')
-        else:
-            if str(request[3]) == '/start':
-                bot.messaging.send_message(peer,translate(lang,'greetings'))
-                common.conMsg('bot','New user with id ' + str(params[0].peer.id) + ' started session')
-            else:
-                bot.messaging.send_message(peer,translate(lang,'invalidInput'))
+        if checkRequest(request) == '0':
+            banList.append(request)
+            if mode == '1' or mode == '2':
+                optional = [None]*2
+                optional[0] = link
+                optional[1] = projectId
+                common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
+                addToQueue(request)
+                sendConfirmationMessage(optional,request)
+            if mode == '0':
+                common.conMsg('bot','Message accepted from uid ' + str(params[0].peer.id))
+                addToQueue(request)
+                requestTypeId = os.environ['ISSUE_TYPE_CONFIG'].split(',')[0]
+                sendTicketManually(request[0],requestTypeId)
+        elif checkRequest(request) == '100':
+            returnError('100',request[2])
+        elif checkRequest(request) == '101':
+            returnError('101',request[2])
+        elif checkRequest(request) == '200':
+            returnError('200',request[2])
+        elif checkRequest(request) == '300':
+            returnError('300',request[2])
     else:
         common.conMsg('bot','Ignoring message from group with id ' + str(params[0].peer.id))
 
@@ -75,6 +67,48 @@ def on_click(*params):
     else:
         message = bot.messaging.get_messages_by_id([params[0].mid])[0]
         bot.messaging.update_message(message, translate(lang,'requestError'))
+
+def getNewQueueId():
+    if len(queue) == 0:
+        return '1'
+    else:
+        i = 0
+        largestQueueId = 1
+        while i < len(queue):
+            if int(queue[i][0]) > largestQueueId:
+                largestQueueId = int(queue[i][0])
+            i += 1
+        return str(largestQueueId + 1)
+
+def checkRequest(request):
+    if len(request[3]) < 1:
+        return '100' #code if request is blank or message with media sent
+    if (request[3][0] == '/') and (request[3] != '/start'):
+        return '101' #code if request have command
+    if request[3] == '/start':
+        return '200' #code for starting work with bot
+    if checkDelay(request[2]) == False:
+        return '300' #tractor driver's joke - checking if user banned
+    return '0'
+
+def returnError(code,userId):
+    peer = bot.users.get_user_peer_by_id(userId)
+    if code == '100':
+        bot.messaging.send_message(peer,translate(lang,'imTooSeriousForYourMedia'))
+        common.conMsg('bot','Attempting to send request from id ' + str(userId) + ' with media')
+        return None
+    if code == '101':
+        bot.messaging.send_message(peer,translate(lang,'invalidInput'))
+        common.conMsg('bot','Attempting to send invalid command from id ' + str(userId))
+        return None
+    if code == '200':
+        bot.messaging.send_message(peer,translate(lang,'greetings'))
+        common.conMsg('bot','New user with id ' + str(userId) + ' started session')
+        return None
+    if code == '300':
+        bot.messaging.send_message(peer,translate(lang,'tooManyRequests'))
+        common.conMsg('bot','Attempting to send request from id ' + str(userId) + ' with non-expired delay')
+        return None
 
 def sendConfirmationMessage(optional,request):
     try:
@@ -131,20 +165,16 @@ def removeFromBanList(uid):
 
 def checkDelay(uid):
     nowTime = int(calendar.timegm(time.gmtime()))
-    result = None
+    result = True
     i = 0
     while i < len(banList):
         if uid == banList[i][2]:
             if nowTime < int(banList[i][1]) + int(os.environ['SEND_DELAY']):
-                result = True
+                result = False
             else:
                 banList.pop(i)
         i += 1
-    if result == True:
-        bot.messaging.send_message(bot.users.get_user_peer_by_id(int(uid)),translate(lang,'tooManyRequests'))
-        return None
-    else:
-        return True
+    return result
 
 def replyToReporter(response='',queue_id='',uid='',keep=True,ticketText=''):
     if keep == True:
