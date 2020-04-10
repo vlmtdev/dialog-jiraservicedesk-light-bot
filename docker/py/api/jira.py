@@ -8,8 +8,8 @@ import common.common as common
 
 def createTicket(credentials,projectId,requestTypeId,reporter,requestMessage):
     requestMessageFormatted = common.formatRequest(requestMessage,int(os.environ['REQUEST_NAME_CHARS_COUNT']))
-    requestMessageFormatted[0] = requestMessageFormatted[0].replace('\n',' ')
-    requestMessageFormatted[1] = requestMessageFormatted[1].replace('\n','\\n')
+    requestMessageFormatted[0] = requestMessageFormatted[0].replace('\n',' ').replace('"','\\"')
+    requestMessageFormatted[1] = requestMessageFormatted[1].replace('\n','\\n').replace('"','\\"')
 
     postfields = '{"serviceDeskId":"' + projectId + '","requestTypeId":"' + requestTypeId + '","requestFieldValues":{"summary":"' + requestMessageFormatted[0] + '","description":"' + requestMessageFormatted[1] + '"},"raiseOnBehalfOf":"' + reporter + '"}'
     rawjson = postRawData(credentials,'/rest/servicedeskapi/request',postfields)
@@ -91,7 +91,7 @@ def postRawData(credentials,url,postfld=""):
     
         c.perform()
         c.close()
-        #print (response.getvalue())
+#        print (response.getvalue())
         rawjson = json.loads(response.getvalue())
         response.close()
         return rawjson
